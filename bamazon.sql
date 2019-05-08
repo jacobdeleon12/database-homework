@@ -43,4 +43,7 @@ VALUES ("Iphone", "Electronics", 1000.00, 12);
 INSERT INTO products (product_name, department_name, price, stock_quantity)
 VALUES ("Hydro Flask", "Personal", 45.00, 5);
 
+UPDATE products SET price= 32  WHERE id= 10;
+
+
 SELECT * FROM products

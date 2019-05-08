@@ -46,6 +46,8 @@ function buy(){
     connection.query("SELECT * FROM products", function(err, results) {
         if (err) throw err;
         // once you have the items, prompt the user for which they'd like to bid on
+      
+
         inquirer
           .prompt([
             {
@@ -54,7 +56,9 @@ function buy(){
               choices: function() {
                 var choiceArray = [];
                 for (var i = 0; i < results.length; i++) {
-                  choiceArray.push(results[i].product_name);
+                  choiceArray.push("ID # = " + results[i].id +" | " +
+                  results[i].product_name + " Quantity = "+ 
+                  results[i].stock_quantity);
                 }
                 return choiceArray;
               },
@@ -70,14 +74,22 @@ function buy(){
             // get the information of the chosen item
             var chosenItem;
             var newQuantity;
+            var userPrice;
+
+          
     
             for (var i = 0; i < results.length; i++) {
-              if (results[i].product_name === answer.choice) {
+              if ("ID # = " + results[i].id +" | " +
+              results[i].product_name + " Quantity = "+ 
+              results[i].stock_quantity === answer.choice) {
+
                 chosenItem = results[i];
                 newQuantity = results[i].stock_quantity 
+                userPrice = results[i].price
               }
             }
             newQuantity -= answer.buy
+            userPrice *= parseInt(answer.buy)
     
             // determine if quantity enough
             if (chosenItem.stock_quantity >= parseInt(newQuantity)) {
@@ -95,7 +107,12 @@ function buy(){
                 ],
                 function(error) {
                   if (error) throw err;
-                  console.log("order placed successfully!");
+
+             
+
+                  console.log("order placed successfully! new Quantity = " + newQuantity);
+                  console.log("Total Price = " + userPrice);
+                  
                   start();
                 }
               );
