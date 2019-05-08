@@ -112,14 +112,10 @@ function addInventory(){
                 type: "input",
                 message: "How much would you like to update by?"
             }
-        ])
-                .then(function(answer) {
+        ]).then(function(answer) {
             // get the information of the chosen item
             var chosenItem;
             var newQuantity;
-            
-
-            
 
             for (var i = 0; i < results.length; i++) {
                 if ("ID # = " + results[i].id +" | " +
@@ -132,7 +128,7 @@ function addInventory(){
                 }
             }
 
-            newQuantity = parseInt(answer.update)
+            newQuantity += parseInt(answer.update)
 
             connection.query(
                 "UPDATE products SET ? WHERE ?",
@@ -145,16 +141,13 @@ function addInventory(){
                   }
                 ],
                 function(error) {
-                  if (error) throw err;
+                    if (error) throw error;
+                      
+                      console.log("Update was successfully! new Quantity = " + newQuantity);
+                      start();
 
-             
-
-                  console.log("Update was successfully! new Quantity = " + newQuantity);
-                  
-                  
-                  start();
                 }
-              );
+            );
         });
     });
 };
@@ -203,7 +196,7 @@ function addProduct() {
               
               start();
             }
-          ));
-        });
+        ));
+    });
         
 };
