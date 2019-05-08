@@ -69,21 +69,25 @@ function buy(){
           .then(function(answer) {
             // get the information of the chosen item
             var chosenItem;
+            var newQuantity;
+    
             for (var i = 0; i < results.length; i++) {
               if (results[i].product_name === answer.choice) {
                 chosenItem = results[i];
+                newQuantity = results[i].stock_quantity 
               }
             }
+            newQuantity -= answer.buy
     
             // determine if quantity enough
-            if (chosenItem.stock_quantity > parseInt(answer.buy)) {
+            if (chosenItem.stock_quantity >= parseInt(newQuantity)) {
                 
               // bid was high enough, so update db, let the user know, and start over
               connection.query(
                 "UPDATE products SET ? WHERE ?",
                 [
                   {
-                    stock_quantity: answer.buy
+                    stock_quantity: newQuantity
                   },
                   {
                     id: chosenItem.id
