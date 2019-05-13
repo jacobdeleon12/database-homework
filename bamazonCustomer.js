@@ -27,7 +27,6 @@ var connection = mysql.createConnection({
 var data,
   output,
   options;
-  
 // first conection 
 connection.connect(function (err) {
   if (err) throw err;
