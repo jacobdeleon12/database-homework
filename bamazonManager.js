@@ -1,5 +1,6 @@
 var mysql = require("mysql");
 var inquirer = require("inquirer");
+const { table } = require('table');
 
 // create the connection information for the sql database
 var connection = mysql.createConnection({
@@ -15,6 +16,11 @@ var connection = mysql.createConnection({
   password: "snake12",
   database: "bamazonDB"
 });
+
+// varables for table
+var data,
+  output,
+  options;
 
 connection.connect(function(err) {
     if (err) throw err;
@@ -51,105 +57,121 @@ function start(){
 };
 
 function forSale(){
+  connection.query("SELECT * FROM products", function (err, results) {
+    if (err) throw err;
+    var data = [["ID", "Product Name", "Price", "Stock Quantity"]];
+    for (var i = 0; i < results.length; i++) {
+      // adding each item to the arr
+      data.push([
+      results[i].id,
+      results[i].product_name, 
+      results[i].price,
+      results[i].stock_quantity]);
+      //table options
+      options = {columns: {1: {width: 20}},};
+      output = table(data, options);
+    };
+    //display table and run the buy function
+    console.log(output);
     
-    connection.query("SELECT * FROM products", function(err, results) {
-        if (err) throw err;
-        // once you have the items, prompt the user for which they'd like to bid on
-        var choiceArray = [];
-                for (var i = 0; i < results.length; i++) {
-                  choiceArray.push("ID # = " + results[i].id +" | " +
-                  results[i].product_name + " Quantity = "+ 
-                  results[i].stock_quantity);
-                }
-                console.log(choiceArray);
-                start();
-    });
+   
+  });
 };    
 
 function lowInvertory(){
     connection.query("SELECT * FROM products", function(err, results) {
         if (err) throw err;
-
-        var lowIn = [];
+        console.log("\n~~~~~~~~~~Product under 5 units~~~~~~~~~~\n");
+        
+        var data = [["ID", "Product Name", "Stock Quantity"]];
 
         for (let i = 0; i < results.length; i++) {
           if (results[i].stock_quantity <= 5) {
-            lowIn.push("ID # = " + results[i].id +" | " +
-            results[i].product_name + " Quantity = "+ 
-            results[i].stock_quantity)
+            data.push([
+              results[i].id,
+              results[i].product_name, 
+              results[i].stock_quantity]);
           }
           
+          options = {columns: {1: {width: 20}},};
+          output = table(data, options);
+          
         }
-        console.log(lowIn);
-        start();
+        console.log(output);
+       
     });
 };
 
 function addInventory(){
-    connection.query("SELECT * FROM products", function(err, results) {
+  forSale();
+  
+  inquirer.prompt([
+    {
+      type: "input",
+      name: "item_id",
+      message: "What is the ID of the product you would like?"
+    },
+    {
+      type: "input",
+      name: "quantity",
+      message: "How many would you like to add?"
+    },
+    
+  ]).then(function (response) {
+    // checking if the responce was a number. if not functions will not work
+    if (isNaN(response.item_id || response.quantity)) {
+      console.log("\nPlease enter both a number for ID and Quantity\n");
+      buy();
+    } else {
+      item = parseInt(response.item_id);
+      var sql = 'SELECT * FROM products WHERE id = ?';
+      //calling DB
+      connection.query(sql, item, function (err, result) {
         if (err) throw err;
-        // once you have the items, prompt the user for which they'd like to bid on
-      
-
-        inquirer
-          .prompt([
-            {
-              name: "choice",
-              type: "rawlist",
-              choices: function() {
-                var choiceArray = [];
-                for (var i = 0; i < results.length; i++) {
-                  choiceArray.push("ID # = " + results[i].id +" | " +
-                  results[i].product_name + " Quantity = "+ 
-                  results[i].stock_quantity);
-                }
-                return choiceArray;
+        // making sure that the amount requested is less then base stock_quantity
+        if (item < result[0].stock_quantity) {
+          //calculations for price and new quantity
+          
+          newQuantity = result[0].stock_quantity;
+          parseInt(newQuantity += response.quantity);
+          
+          // logs checking if calculations are correct
+          // console.log(newQuantity);
+          // console.log(parseInt(item));
+          //updating DB
+          var sqlUpdate = "UPDATE products SET ? WHERE  ?";
+          connection.query(sqlUpdate,
+            [
+              {
+                stock_quantity: newQuantity
               },
-              message: "What item would you like to update the quantity",
-            },
-            {
-                name: "update",
-                type: "input",
-                message: "How much would you like to update by?"
+              {
+                id: item
+              }
+            ],
+            function (error) {
+              if (error) throw err;
+              data = [
+                ["ID", "Product Name",  "Remaining Quantity"],
+                [result[0].id, result[0].product_name, newQuantity],
+              ];
+              //showing user price and new quantity
+              output = table(data);
+              console.log(output);
+
+              start();
+              
+            });
             }
-        ]).then(function(answer) {
-            // get the information of the chosen item
-            var chosenItem;
-            var newQuantity;
-
-            for (var i = 0; i < results.length; i++) {
-                if ("ID # = " + results[i].id +" | " +
-                results[i].product_name + " Quantity = "+ 
-                results[i].stock_quantity === answer.choice) {
-
-                chosenItem = results[i];
-                newQuantity = results[i].stock_quantity 
-                
-                }
+            else {
+              // bid wasn't high enough, so apologize and start over
+              console.log("\nQuantity was too low. Try again...\n");
+              start();
             }
+      });
+    }
+  });
 
-            newQuantity += parseInt(answer.update)
-
-            connection.query(
-                "UPDATE products SET ? WHERE ?",
-                [
-                  {
-                    stock_quantity: newQuantity
-                  },
-                  {
-                    id: chosenItem.id
-                  }
-                ],
-                function(error) {
-                    if (error) throw error;
-                      
-                      console.log("Update was successfully! new Quantity = " + newQuantity);
-                      start();
-
-                }
-            );
-        });
-    });
 };
 
 
@@ -178,21 +200,27 @@ function addProduct() {
         }
       ])
         .then(function (response) {
+          
+          
           connection.query(
             "INSERT INTO products SET ?",
             {
-                product_name: response.item,
-                department_name: response.department,
-                price: response.price,
-                stock_quantity: response.quantity
+              product_name: response.item,
+              department_name: response.department,
+              price: response.price,
+              stock_quantity: response.quantity
             },
             connection.query("SELECT * FROM products", function (err, res) {
-                if (err) throw err;
+              if (err) throw err;
+              var data = [["ID", "Product Name", "department", " Quantity"],
+              [response.item,response.department,response.price, response.quantity]];
+
+              options = {columns: {1: {width: 20}},};
+              output = table(data, options);
+
               console.log("Product posted!\n");
-              console.log("Item = "+ response.item);
-              console.log("Department = " + response.department);
-              console.log("Price = "+ response.price);
-              console.log("Quantity = "+ response.quantity+"\n");
+              console.log(output);
+
               
               start();
             }

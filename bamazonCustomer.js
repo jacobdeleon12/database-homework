@@ -1,5 +1,12 @@
+// Dependencies
 var mysql = require("mysql");
 var inquirer = require("inquirer");
+const { table } = require('table');
+
+// Global Varables
+var newQuantity = 0;
+var item = 0;
+var userPrice;
 
 // create the connection information for the sql database
 var connection = mysql.createConnection({
@@ -16,112 +23,133 @@ var connection = mysql.createConnection({
   database: "bamazonDB"
 });
 
-connection.connect(function(err) {
-    if (err) throw err;
-    console.log("connected as id " + connection.threadId);
-    start();
-  });
-   
-function start(){
-    inquirer
+// varables for table
+var data,
+  output,
+  options;
+  
+// first conection 
+connection.connect(function (err) {
+  if (err) throw err;
+  console.log("connected as id " + connection.threadId);
+  console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+  start();
+});
+
+
+//start function
+function start() {
+  inquirer
     .prompt({
       name: "buy",
       type: "list",
       message: "Is there a product you would like to buy?",
       choices: ["Buy", "EXIT"]
     })
-    .then(function(answer) {
+    .then(function (answer) {
       // based on their answer, either call the bid or the post functions
       if (answer.buy === "Buy") {
-        buy();
+        display();
       }
-       else{
+      else {
         connection.end();
       }
     });
 };
 
-function buy(){
-    
-    connection.query("SELECT * FROM products", function(err, results) {
+
+//displaying all the items in the database
+function display() {
+
+  connection.query("SELECT * FROM products", function (err, results) {
+    if (err) throw err;
+    var data = [["ID", "Product Name", "Price", "Stock Quantity"]];
+    for (var i = 0; i < results.length; i++) {
+      // adding each item to the arr
+      data.push([
+      results[i].id,
+      results[i].product_name, 
+      results[i].price,
+      results[i].stock_quantity]);
+      //table options
+      options = {columns: {1: {width: 20}},};
+      output = table(data, options);
+    };
+    //display table and run the buy function
+    console.log(output);
+    buy();
+  });
+}
+
+
+
+
+function buy() {
+
+  inquirer.prompt([
+    {
+      type: "input",
+      name: "item_id",
+      message: "What is the ID of the product you would like?"
+    },
+    {
+      type: "input",
+      name: "quantity",
+      message: "How many would you like?"
+    },
+
+  ]).then(function (response) {
+    // checking if the responce was a number. if not functions will not work
+    if (isNaN(response.item_id || response.quantity)) {
+      console.log("\nPlease enter both a number for ID and Quantity\n");
+      buy();
+    } else {
+      item = parseInt(response.item_id);
+      var sql = 'SELECT * FROM products WHERE id = ?';
+      //calling DB
+      connection.query(sql, item, function (err, result) {
         if (err) throw err;
-        // once you have the items, prompt the user for which they'd like to bid on
-      
-
-        inquirer
-          .prompt([
-            {
-              name: "choice",
-              type: "rawlist",
-              choices: function() {
-                var choiceArray = [];
-                for (var i = 0; i < results.length; i++) {
-                  choiceArray.push("ID # = " + results[i].id +" | " +
-                  results[i].product_name + " Quantity = "+ 
-                  results[i].stock_quantity);
-                }
-                return choiceArray;
+        // making sure that the amount requested is less then base stock_quantity
+        if (item < result[0].stock_quantity) {
+          //calculations for price and new quantity
+          userPrice = result[0].price;
+          newQuantity = result[0].stock_quantity;
+          parseInt(newQuantity -= response.quantity);
+          userPrice *= parseInt(response.quantity);
+          var fianlPrice = userPrice.toFixed(2);
+          // logs checking if calculations are correct
+          // console.log(newQuantity);
+          // console.log(parseInt(item));
+          //updating DB
+          var sqlUpdate = "UPDATE products SET ? WHERE  ?";
+          connection.query(sqlUpdate,
+            [
+              {
+                stock_quantity: newQuantity
               },
-              message: "What item would you like to buy"
-            },
-            {
-              name: "buy",
-              type: "input",
-              message: "How much would you like to buy?"
-            }
-          ])
-          .then(function(answer) {
-            // get the information of the chosen item
-            var chosenItem;
-            var newQuantity;
-            var userPrice;
-
-          
-    
-            for (var i = 0; i < results.length; i++) {
-              if ("ID # = " + results[i].id +" | " +
-              results[i].product_name + " Quantity = "+ 
-              results[i].stock_quantity === answer.choice) {
-
-                chosenItem = results[i];
-                newQuantity = results[i].stock_quantity 
-                userPrice = results[i].price
+              {
+                id: item
               }
-            }
-            newQuantity -= answer.buy
-            userPrice *= parseInt(answer.buy)
-    
-            // determine if quantity enough
-            if (chosenItem.stock_quantity >= parseInt(newQuantity)) {
-                
-              // bid was high enough, so update db, let the user know, and start over
-              connection.query(
-                "UPDATE products SET ? WHERE ?",
-                [
-                  {
-                    stock_quantity: newQuantity
-                  },
-                  {
-                    id: chosenItem.id
-                  }
-                ],
-                function(error) {
-                  if (error) throw err;
+            ],
+            function (error) {
+              if (error) throw err;
+              data = [
+                ["ID", "Product Name", "Amount Due", "Remaining Quantity"],
+                [result[0].id, result[0].product_name, fianlPrice, newQuantity],
+              ];
+              //showing user price and new quantity
+              output = table(data);
+              console.log(output);
 
-             
-
-                  console.log("order placed successfully! new Quantity = " + newQuantity);
-                  console.log("Total Price = " + userPrice);
-                  
-                  start();
-                }
-              );
+              start();
+            });
             }
             else {
               // bid wasn't high enough, so apologize and start over
-              console.log("quantity was too low. Try again...");
+              console.log("\nQuantity was too low. Try again...\n");
               start();
             }
-          });
       });
     }
+  });
+};
