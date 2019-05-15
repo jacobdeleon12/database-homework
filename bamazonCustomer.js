@@ -107,7 +107,7 @@ function buy() {
       var sql = 'SELECT * FROM products WHERE id = ?';
       //calling DB
       connection.query(sql, item, function (err, result) {
-        console.log(result);
+        // console.log(result);
         
         if (err) throw err;
         // making sure that the amount requested is less then base stock_quantity
