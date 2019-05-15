@@ -1,7 +1,8 @@
 var mysql = require("mysql");
 var inquirer = require("inquirer");
 const { table } = require('table');
-var item = 0
+var item = 0;
+var newQuantity = 0;
 // create the connection information for the sql database
 var connection = mysql.createConnection({
   host: "localhost",
@@ -38,22 +39,27 @@ function start(){
     })
     .then(function(answer) {
       // based on their answer, either call the bid or the post functions
-      if (answer.buy === "View Products for Sale") {
-        forSale();
-      }
-      if (answer.buy === "View Low Inventory") {
-        lowInvertory();
-      }
-      if (answer.buy === "Add to Inventory") {
-        addInventory();
-      }
-      if (answer.buy === "Add New Product") {
-        addProduct();
-      }
-       else{
-        connection.end();
-      }
-    });
+    switch (answer.buy){
+      case "View Products for Sale" :
+      forSale();
+      break;
+
+      case "View Low Inventory" :
+      lowInvertory();
+      break;
+
+      case"Add to Inventory":
+      addInventory();
+      break;
+
+      case "Add New Product":
+      addProduct();
+      break;
+
+      default:
+      connection.end();
+    }
+  });
 };
 
 function forSale(){
@@ -73,6 +79,7 @@ function forSale(){
     };
     //display table and run the buy function
     console.log(output);
+    start();
   });
 };    
 
@@ -135,28 +142,24 @@ function addInventory(){
     // checking if the responce was a number. if not functions will not work
     if (isNaN(response.item_id || response.quantity)) {
       console.log("\nPlease enter both a number for ID and Quantity\n");
-      buy();
+      addInventory();
     } else {
       item = parseInt(response.item_id);
-      console.log(item);
+      var userQuantity = parseInt(response.quantity)
       
+      // console.log(userQuantity);
       
-      var sql = 'SELECT * FROM products WHERE id = ?';
+      var sql = 'SELECT * FROM products WHERE id= ?';
       //calling DB
       connection.query(sql, item, function (err, result) {
-        console.log(result[0]);
-        // if (err) throw err;
-        // making sure that the amount requested is less then base stock_quantity
+      if (err) throw err;
         
-          //calculations for price and new quantity
-         
-          newQuantity = result[0].stock_quantity;
-          parseInt(newQuantity+= response.quantity);
-         
-          
+          //calculations for new quantity
+          parseInt(newQuantity);
+          parseInt(newQuantity = result[0].stock_quantity);
+          newQuantity += userQuantity;
+
           // logs checking if calculations are correct
-          // console.log(newQuantity);
-          // console.log(parseInt(item));
           //updating DB
           var sqlUpdate = "UPDATE products SET ? WHERE  ?";
           connection.query(sqlUpdate,
@@ -171,10 +174,10 @@ function addInventory(){
             function (error) {
               if (error) throw err;
               data = [
-                ["ID", "Product Name", "Amount Due", "Remaining Quantity"],
-                [result[0].id, result[0].product_name, fianlPrice, newQuantity],
+                ["ID", "Product Name", "Updated Quantity"],
+                [result[0].id, result[0].product_name,  newQuantity],
               ];
-              //showing user price and new quantity
+              //showing user new quantity
               output = table(data);
               console.log(output);
 
